@@ -1,10 +1,3 @@
-# 第4章姿勢推定のネットワーク
-# 以下を一部変更し、ほぼそのまま使用
-# https://github.com/tensorboy/pytorch_Realtime_Multi-Person_Pose_Estimation/blob/master/network/post.py
-# Released under the MIT license
-
-
-# 必要なパッケージのimport
 import math
 
 import cv2

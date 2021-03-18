@@ -1,7 +1,3 @@
-# 第4章姿勢推定のデータオーギュメンテーション
-# 実装の一部参考に使用
-# https://github.com/tensorboy/pytorch_Realtime_Multi-Person_Pose_Estimation/
-# Released under the MIT license
 
 import os
 import os.path as osp
@@ -17,7 +13,6 @@ from utils.data_augumentation import Compose, get_anno, add_neck, aug_scale, aug
 
 
 def putGaussianMaps(center, accumulate_confid_map, params_transform):
-    '''ガウスマップに変換する'''
     crop_size_y = params_transform['crop_size_y']
     crop_size_x = params_transform['crop_size_x']
     stride = params_transform['stride']
@@ -43,7 +38,6 @@ def putGaussianMaps(center, accumulate_confid_map, params_transform):
 
 
 def putVecMaps(centerA, centerB, accumulate_vec_map, count, params_transform):
-    '''Parts A Fieldのベクトルを求める'''
 
     centerA = centerA.astype(float)
     centerB = centerB.astype(float)
@@ -102,11 +96,9 @@ def putVecMaps(centerA, centerB, accumulate_vec_map, count, params_transform):
 
 
 def get_ground_truth(meta, mask_miss):
-    """アノテーションとマスクデータから正しい答えを求める"""
 
-    # 初期設定
     params_transform = dict()
-    params_transform['stride'] = 8  # 画像サイズを変更したくない場合は1にする
+    params_transform['stride'] = 8
     params_transform['mode'] = 5
     params_transform['crop_size_x'] = 368
     params_transform['crop_size_y'] = 368
@@ -121,12 +113,10 @@ def get_ground_truth(meta, mask_miss):
     num_parts = params_transform['np']
     nop = meta['numOtherPeople']
 
-    # 画像サイズ
     grid_y = crop_size_y / stride
     grid_x = crop_size_x / stride
     channels = (num_parts + 1) * 2
 
-    # 格納する変数
     heatmaps = np.zeros((int(grid_y), int(grid_x), 19))
     pafs = np.zeros((int(grid_y), int(grid_x), 38))
 
@@ -136,11 +126,9 @@ def get_ground_truth(meta, mask_miss):
     mask_miss = mask_miss / 255.
     mask_miss = np.expand_dims(mask_miss, axis=2)
 
-    # マスク変数
     heat_mask = np.repeat(mask_miss, 19, axis=2)
     paf_mask = np.repeat(mask_miss, 38, axis=2)
 
-    # ピンポイントの座標情報をガウス分布にぼやっとさせる
     for i in range(18):
         if (meta['joint_self'][i, 2] <= 1):
             center = meta['joint_self'][i, :2]
@@ -198,17 +186,12 @@ def get_ground_truth(meta, mask_miss):
 
 
 def make_datapath_list(rootpath):
-    """
-    学習、検証の画像データとアノテーションデータ、マスクデータへのファイルパスリストを作成する。
-    """
 
-    # アノテーションのJSONファイルを読み込む
     json_path = osp.join(rootpath, 'COCO.json')
     with open(json_path) as data_file:
         data_this = json.load(data_file)
         data_json = data_this['root']
 
-    # indexを格納
     num_samples = len(data_json)
     train_indexes = []
     val_indexes = []
@@ -218,7 +201,6 @@ def make_datapath_list(rootpath):
         else:
             train_indexes.append(count)
 
-    # 画像ファイルパスを格納
     train_img_list = list()
     val_img_list = list()
 
@@ -230,7 +212,6 @@ def make_datapath_list(rootpath):
         img_path = os.path.join(rootpath, data_json[idx]['img_paths'])
         val_img_list.append(img_path)
 
-    # マスクデータのパスを格納
     train_mask_list = []
     val_mask_list = []
 
@@ -258,38 +239,24 @@ def make_datapath_list(rootpath):
 
 
 class DataTransform():
-    """
-    画像とマスク、アノテーションの前処理クラス。
-    学習時と推論時で異なる動作をする。
-    学習時はデータオーギュメンテーションする。
-    """
-
     def __init__(self):
 
         self.data_transform = {
             'train': Compose([
-                get_anno(),  # JSONからアノテーションを辞書に格納
-                add_neck(),  # アノテーションデータの順番を変更し、さらに首のアノテーションデータを追加
-                aug_scale(),  # 拡大縮小
-                aug_rotate(),  # 回転
-                aug_croppad(),  # 切り出し
-                aug_flip(),  # 左右反転
-                remove_illegal_joint(),  # 画像からはみ出たアノテーションを除去
-                Normalize_Tensor()  # 色情報の標準化とテンソル化
-                # no_Normalize_Tensor()  # 本節のみ、色情報の標準化をなくす
+                get_anno(),
+                add_neck(),
+                aug_scale(),
+                aug_rotate(),
+                aug_croppad(),
+                aug_flip(),
+                remove_illegal_joint(),
+                Normalize_Tensor()
             ]),
             'val': Compose([
-                # 本書では検証は省略
             ])
         }
 
     def __call__(self, phase, meta_data, img, mask_miss):
-        """
-        Parameters
-        ----------
-        phase : 'train' or 'val'
-            前処理のモードを指定。
-        """
         meta_data, img, mask_miss = self.data_transform[phase](
             meta_data, img, mask_miss)
 
@@ -297,21 +264,6 @@ class DataTransform():
 
 
 class COCOkeypointsDataset(data.Dataset):
-    """
-    MSCOCOのCocokeypointsのDatasetを作成するクラス。PyTorchのDatasetクラスを継承。
-
-    Attributes
-    ----------
-    img_list : リスト
-        画像のパスを格納したリスト
-    anno_list : リスト
-        アノテーションへのパスを格納したリスト
-    phase : 'train' or 'test'
-        学習か訓練かを設定する。
-    transform : object
-        前処理クラスのインスタンス
-
-    """
 
     def __init__(self, img_list, mask_list, meta_list, phase, transform):
         self.img_list = img_list
@@ -321,7 +273,6 @@ class COCOkeypointsDataset(data.Dataset):
         self.transform = transform
 
     def __len__(self):
-        '''画像の枚数を返す'''
         return len(self.img_list)
 
     def __getitem__(self, index):
@@ -329,32 +280,28 @@ class COCOkeypointsDataset(data.Dataset):
         return img, heatmaps, heat_mask, pafs, paf_mask
 
     def pull_item(self, index):
-        '''画像のTensor形式のデータ、アノテーション、マスクを取得する'''
-
-        # 1. 画像読み込み
+        # 1.
         image_file_path = self.img_list[index]
         img = cv2.imread(image_file_path)  # [高さ][幅][色BGR]
 
-        # 2. マスクとアノテーション読み込み
+        # 2.
         mask_miss = cv2.imread(self.mask_list[index])
         meat_data = self.meta_list[index]
 
-        # 3. 画像前処理
+        # 3.
         meta_data, img, mask_miss = self.transform(
             self.phase, meat_data, img, mask_miss)
 
-        # 4. 正解アノテーションデータの取得
+        # 4.
         mask_miss_numpy = mask_miss.numpy().transpose((1, 2, 0))
         heat_mask, heatmaps, paf_mask, pafs = get_ground_truth(
             meta_data, mask_miss_numpy)
 
-        # 5. マスクデータはRGBが(1,1,1)か(0,0,0)なので、次元を落とす
+        # 5.
         heat_mask = heat_mask[:, :, :, 0]
         paf_mask = paf_mask[:, :, :, 0]
 
-        # 6. チャネルが最後尾にあるので順番を変える
-        # 例：paf_mask：torch.Size([46, 46, 38])
-        # → torch.Size([38, 46, 46])
+        # 6.
         paf_mask = paf_mask.permute(2, 0, 1)
         heat_mask = heat_mask.permute(2, 0, 1)
         pafs = pafs.permute(2, 0, 1)

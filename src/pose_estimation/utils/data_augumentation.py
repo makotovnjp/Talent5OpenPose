@@ -1,11 +1,4 @@
-# 第4章姿勢推定のデータオーギュメンテーション
-# 実装の一部参考に使用
-# https://github.com/tensorboy/pytorch_Realtime_Multi-Person_Pose_Estimation/
-# のImageAugmentation.py
-# Released under the MIT license
 
-
-# パッケージのimport
 import cv2
 import numpy as np
 import random
@@ -15,9 +8,6 @@ from torchvision import transforms
 
 
 class Compose(object):
-    """引数transformに格納された変形を順番に実行するクラス
-       対象画像、マスク画像、アノテーション画像を同時に変換させます。 
-    """
 
     def __init__(self, transforms):
         self.transforms = transforms
@@ -30,7 +20,6 @@ class Compose(object):
 
 
 class get_anno(object):
-    """JSON形式のアノテーションデータを辞書オブジェクトに格納"""
 
     def __call__(self, meta_data, img, mask_miss):
         anno = dict()
@@ -67,9 +56,6 @@ class get_anno(object):
 
 class add_neck(object):
     '''
-    アノテーションデータの順番を変更し、さらに首のアノテーションデータを追加します。
-    首ポジションは両肩の位置から計算します。
-
     MS COCO annotation order:
     0: nose	   		1: l eye		2: r eye	3: l ear	4: r ear
     5: l shoulder	6: r shoulder	7: l elbow	8: r elbow
@@ -92,11 +78,6 @@ class add_neck(object):
         left_shoulder = meta['joint_self'][5, :]
         neck = (right_shoulder + left_shoulder) / 2
 
-        # right_shoulder[2]が値1のときはアノテーションがあり画像内に部位も見えている
-        # 値0のときはアノテーションの座標情報はあるが、画像内に部位は映っていない
-        # 値が2のときは画像内に写っておらず、アノテーション付けもない
-        # ※注意　元のMSCOCOの定義と値の意味が変わっている
-        # v=0: not labeled (in which case x=y=0), v=1: labeled but not visible, and v=2: labeled and visible.
         if right_shoulder[2] == 2 or left_shoulder[2] == 2:
             neck[2] = 2
         elif right_shoulder[2] == 1 or left_shoulder[2] == 1:
@@ -141,7 +122,6 @@ class aug_scale(object):
 
     def __call__(self, meta_data, img, mask_miss):
 
-        # ランダムに0.5倍～1.1倍する
         dice = random.random()  # (0,1)
         scale_multiplier = (
             self.params_transform['scale_max'] - self.params_transform['scale_min']) * dice + self.params_transform['scale_min']
@@ -171,7 +151,6 @@ class aug_rotate(object):
 
     def __call__(self, meta_data, img, mask_miss):
 
-        # ランダムに-40～40度回転
         dice = random.random()  # (0,1)
         degree = (dice - 0.5) * 2 * \
             self.params_transform['max_rotate_degree']  # degree [-40,40]
@@ -214,13 +193,11 @@ class aug_rotate(object):
             p[1] = new_point[1]
             return p
 
-        # 画像とマスク画像の回転
         img_rot, R = rotate_bound(img, np.copy(
             degree), (128, 128, 128))  # 回転でできた隙間は青色
         mask_miss_rot, _ = rotate_bound(
             mask_miss, np.copy(degree), (255, 255, 255))
 
-        # アノテーションデータの回転
         meta_data['objpos'] = rotatepoint(meta_data['objpos'], R)
 
         for i in range(18):
@@ -248,7 +225,6 @@ class aug_croppad(object):
 
     def __call__(self, meta_data, img, mask_miss):
 
-        # ランダムにオフセットを用意 -40から40
         dice_x = random.random()  # (0,1)
         dice_y = random.random()  # (0,1)
         crop_x = int(self.params_transform['crop_size_x'])
@@ -262,7 +238,7 @@ class aug_croppad(object):
         center = center.astype(int)
 
         # pad up and down
-        # img.shape=（幅、高さ）
+        # img.shape=（width、height）
         pad_v = np.ones((crop_y, img.shape[1], 3), dtype=np.uint8) * 128
         pad_v_mask_miss = np.ones(
             (crop_y, mask_miss.shape[1], 3), dtype=np.uint8) * 255
@@ -272,7 +248,7 @@ class aug_croppad(object):
             (pad_v_mask_miss, mask_miss, pad_v_mask_miss), axis=0)
 
         # pad right and left
-        # img.shape=（幅、高さ）
+        # img.shape=（width、height）
         pad_h = np.ones((img.shape[0], crop_x, 3), dtype=np.uint8) * 128
         pad_h_mask_miss = np.ones(
             (mask_miss.shape[0], crop_x, 3), dtype=np.uint8) * 255
@@ -281,7 +257,7 @@ class aug_croppad(object):
         mask_miss = np.concatenate(
             (pad_h_mask_miss, mask_miss, pad_h_mask_miss), axis=1)
 
-        # 切り出す
+        # Cut
         img = img[int(center[1] + crop_y / 2):int(center[1] + crop_y / 2 + crop_y),
                   int(center[0] + crop_x / 2):int(center[0] + crop_x / 2 + crop_x), :]
 
@@ -295,8 +271,6 @@ class aug_croppad(object):
         meta_data['objpos'] += offset
         meta_data['joint_self'][:, :2] += offset
 
-        # 画像からはみ出ていないかチェック
-        # 条件式4つのORを計算する
         mask = np.logical_or.reduce((meta_data['joint_self'][:, 0] >= crop_x,
                                      meta_data['joint_self'][:, 0] < 0,
                                      meta_data['joint_self'][:, 1] >= crop_y,
@@ -307,7 +281,6 @@ class aug_croppad(object):
             meta_data['objpos_other'] += offset
             meta_data['joint_others'][:, :, :2] += offset
 
-            # 条件式4つのORを計算する
             mask = np.logical_or.reduce((meta_data['joint_others'][:, :, 0] >= crop_x,
                                          meta_data['joint_others'][:,
                                                                    :, 0] < 0,
@@ -326,8 +299,6 @@ class aug_flip(object):
         self.params_transform['flip_prob'] = 0.5
 
     def __call__(self, meta_data, img, mask_miss):
-
-        # ランダムにオフセットを用意 -40から40
 
         dice = random.random()  # (0,1)
         doflip = dice <= self.params_transform['flip_prob']
@@ -369,7 +340,6 @@ class aug_flip(object):
 
 
 class remove_illegal_joint(object):
-    """データオーギュメンテーションの結果、画像内から外れたパーツの位置情報を変更する"""
 
     def __init__(self):
         self.params_transform = dict()
@@ -380,13 +350,12 @@ class remove_illegal_joint(object):
         crop_x = int(self.params_transform['crop_size_x'])
         crop_y = int(self.params_transform['crop_size_y'])
 
-        # 条件式4つのORを計算する
         mask = np.logical_or.reduce((meta_data['joint_self'][:, 0] >= crop_x,
                                      meta_data['joint_self'][:, 0] < 0,
                                      meta_data['joint_self'][:, 1] >= crop_y,
                                      meta_data['joint_self'][:, 1] < 0))
 
-        # 画像内の枠からはみ出たパーツの位置情報は(1,1,2)にする
+        # Get parts
         meta_data['joint_self'][mask == True, :] = (1, 1, 2)
 
         if (meta_data['numOtherPeople'] != 0):
@@ -408,10 +377,8 @@ class Normalize_Tensor(object):
 
     def __call__(self, meta_data, img, mask_miss):
 
-        # 画像の大きさは最大1に規格化される
         img = img.astype(np.float32) / 255.
 
-        # 色情報の標準化
         preprocessed_img = img.copy()[:, :, ::-1]  # BGR→RGB
 
         for i in range(3):
@@ -420,11 +387,9 @@ class Normalize_Tensor(object):
             preprocessed_img[:, :, i] = preprocessed_img[:,
                                                          :, i] / self.color_std[i]
 
-        # （幅、高さ、色）→（色、幅、高さ）
         img = preprocessed_img.transpose((2, 0, 1)).astype(np.float32)
         mask_miss = mask_miss.transpose((2, 0, 1)).astype(np.float32)
 
-        # 画像をTensorに
         img = torch.from_numpy(img)
         mask_miss = torch.from_numpy(mask_miss)
 
@@ -438,10 +403,8 @@ class no_Normalize_Tensor(object):
 
     def __call__(self, meta_data, img, mask_miss):
 
-        # 画像の大きさは最大1に規格化される
         img = img.astype(np.float32) / 255.
 
-        # 色情報の標準化
         preprocessed_img = img.copy()[:, :, ::-1]  # BGR→RGB
 
         for i in range(3):
@@ -450,11 +413,9 @@ class no_Normalize_Tensor(object):
             preprocessed_img[:, :, i] = preprocessed_img[:,
                                                          :, i] / self.color_std[i]
 
-        # （幅、高さ、色）→（色、幅、高さ）
         img = preprocessed_img.transpose((2, 0, 1)).astype(np.float32)
         mask_miss = mask_miss.transpose((2, 0, 1)).astype(np.float32)
 
-        # 画像をTensorに
         img = torch.from_numpy(img)
         mask_miss = torch.from_numpy(mask_miss)
 
