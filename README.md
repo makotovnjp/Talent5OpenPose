@@ -11,8 +11,5 @@
     - conda install pytorch==1.7.0 torchvision==0.8.0 torchaudio==0.7.0 cpuonly -c pytorch
    
 4. cài thư viện khác
-   - pip install jupyter
-   - pip install opencv-python
-   - pip install opencv-contrib-python
-   - pip install matplotlib
-   - pip install scipy
+   - cd src\pose_estimation
+   - pip install -r requirements.txt
