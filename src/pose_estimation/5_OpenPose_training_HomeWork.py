@@ -4,7 +4,7 @@
 # # Thực hiện học trên model
 # 
 
-# In[ ]:
+# In[1]:
 
 
 # import
@@ -20,7 +20,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 
-# In[ ]:
+# In[2]:
 
 
 # Thiết định các giá trị ban đầu
@@ -31,7 +31,7 @@ random.seed(1234)
 
 # # Tạo DataLoader
 
-# In[3]:
+# In[4]:
 
 
 from utils.dataloader import make_datapath_list, DataTransform, COCOkeypointsDataset
@@ -39,6 +39,18 @@ from utils.dataloader import make_datapath_list, DataTransform, COCOkeypointsDat
 # Tạo list từ MS COCO
 train_img_list, train_mask_list, val_img_list, val_mask_list, train_meta_list, val_meta_list = make_datapath_list(
     rootpath="./data/")
+print(len(train_img_list))
+print(len(train_meta_list))
+
+# ★Lấy 1024 data để train for cpu
+# lấy 10240 data for gpu
+data_num = 10240  # bội số của batch size
+train_img_list = train_img_list[:data_num]
+train_mask_list = train_mask_list[:data_num]
+val_img_list = val_img_list[:data_num]
+val_mask_list = val_mask_list[:data_num]
+train_meta_list = train_meta_list[:data_num]
+val_meta_list = val_meta_list[:data_num]
 
 # Tạo dataset
 train_dataset = COCOkeypointsDataset(
@@ -48,7 +60,7 @@ train_dataset = COCOkeypointsDataset(
 # val_dataset = CocokeypointsDataset(val_img_list, val_mask_list, val_meta_list, phase="val", transform=DataTransform())
 
 # Tạo DataLoader
-batch_size = 32
+batch_size = 8
 
 train_dataloader = data.DataLoader(
     train_dataset, batch_size=batch_size, shuffle=True)
@@ -57,7 +69,7 @@ dataloaders_dict = {"train": train_dataloader, "val": None}
 
 # # Tạo Model 
 
-# In[ ]:
+# In[5]:
 
 
 from utils.openpose_net import OpenPoseNet
@@ -66,7 +78,7 @@ net = OpenPoseNet()
 
 # # Định nghĩa hàm mất mát
 
-# In[ ]:
+# In[6]:
 
 
 class OpenPoseLoss(nn.Module):
@@ -119,7 +131,7 @@ criterion = OpenPoseLoss()
 
 # # Thiết định optimizer
 
-# In[ ]:
+# In[7]:
 
 
 optimizer = optim.SGD(net.parameters(), lr=1e-2,
@@ -129,7 +141,7 @@ optimizer = optim.SGD(net.parameters(), lr=1e-2,
 
 # # Thực hiện việc học
 
-# In[ ]:
+# In[8]:
 
 
 def train_model(net, dataloaders_dict, criterion, optimizer, num_epochs):
@@ -201,10 +213,10 @@ def train_model(net, dataloaders_dict, criterion, optimizer, num_epochs):
                         loss.backward()
                         optimizer.step()
 
-                        if (iteration % 10 == 0):
+                        if (iteration % 2 == 0):
                             t_iter_finish = time.time()
                             duration = t_iter_finish - t_iter_start
-                            print('イテレーション {} || Loss: {:.4f} || 10iter: {:.4f} sec.'.format(
+                            print('イテレーション {} || Loss: {:.4f} || 2iter: {:.4f} sec.'.format(
                                 iteration, loss.item()/batch_size, duration))
                             t_iter_start = time.time()
 
