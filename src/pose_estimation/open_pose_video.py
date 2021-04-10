@@ -54,8 +54,6 @@ def predict(img_file_paths: typing.List, model_path: str) -> int:
     """
     step2: predict với những ảnh đã tạo ra
     """
-    print("start predict")
-
     # create model to predict
     net = OpenPoseNet()
 
@@ -72,16 +70,35 @@ def predict(img_file_paths: typing.List, model_path: str) -> int:
     state.update(weights_load)
     net.load_state_dict(state)
 
-    for index, image_path in enumerate(img_file_paths):
+    for image_path in img_file_paths:
+        print("predicting {}".format(image_path))
         result_img = _predict_one_image(net, image_path)
 
-        cv2.imwrite('./data/predicted_images/dance_{}.jpg'.format(index), result_img)
+        cv2.imwrite('./data/predicted_images/{}'.
+                    format(os.path.basename(image_path)),
+                    result_img)
 
 
-def create_predicted_video(file_paths) -> str:
+def create_predicted_video(video_path, images_path) -> str:
     predicted_video_path = ""
+    first_img = cv2.imread(images_path[0])
 
-    return predicted_video_path
+    height, width, layers = first_img.shape
+    size = (width, height)
+    fps = 25
+
+    video = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc('X', 'V', 'I', 'D'),
+                            fps, size)
+
+    # để viết image đúng thứ tự cần phải sort là images_path
+    images_path = sorted(images_path, key=lambda x: int(x.split("_")[2].split(".")[0]))
+
+    for image_path in images_path:
+        print("writing video {}".format(image_path))
+        image = cv2.imread(image_path)
+        video.write(image)
+
+    video.release()
 
 
 def _predict_one_image(net: object, image_path: str) -> object:
@@ -89,9 +106,6 @@ def _predict_one_image(net: object, image_path: str) -> object:
     predict one image
     """
     ori_img = cv2.imread(image_path)
-
-    # BGR->RGB
-    ori_img = cv2.cvtColor(ori_img, cv2.COLOR_BGR2RGB)
 
     # Resize
     size = (368, 368)
@@ -140,8 +154,16 @@ def _predict_one_image(net: object, image_path: str) -> object:
 
 
 if __name__ == "__main__":
-    ret = extract_video('./data/dance.mp4')
-    if ret == OK:
-        img_file_paths = glob.glob("./data/dance_*")
-        ret = predict(img_file_paths=img_file_paths,
-                      model_path='./weights/pose_model_scratch.pth')
+    # # extract from video to image
+    # extract_video('./data/dance.mp4')
+    #
+    # create predicted image
+    # img_file_paths = glob.glob("./data/dance_*")
+    # ret = predict(img_file_paths=img_file_paths,
+    #               model_path='./weights/pose_model_scratch.pth')
+
+    # create video
+    predicted_images_path = glob.glob("./data/predicted_images/dance_*")
+    create_predicted_video("./data/predicted_video.avi",
+                           predicted_images_path)
+

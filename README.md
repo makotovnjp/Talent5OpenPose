@@ -17,3 +17,7 @@
 4. cài thư viện khác
    - cd src\pose_estimation
    - pip install -r requirements.txt
+   
+## Tạo video dự đoán tư thê
+1. cd pose_estimation
+2. python open_pose_video.py
