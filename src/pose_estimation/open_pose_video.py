@@ -154,13 +154,13 @@ def _predict_one_image(net: object, image_path: str) -> object:
 
 
 if __name__ == "__main__":
-    # # extract from video to image
-    # extract_video('./data/dance.mp4')
-    #
+    # extract from video to image
+    extract_video('./data/dance.mp4')
+
     # create predicted image
-    # img_file_paths = glob.glob("./data/dance_*")
-    # ret = predict(img_file_paths=img_file_paths,
-    #               model_path='./weights/pose_model_scratch.pth')
+    img_file_paths = glob.glob("./data/dance_*")
+    ret = predict(img_file_paths=img_file_paths,
+                  model_path='./weights/pose_model_scratch.pth')
 
     # create video
     predicted_images_path = glob.glob("./data/predicted_images/dance_*")
